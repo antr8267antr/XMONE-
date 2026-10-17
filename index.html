@@ -11,26 +11,21 @@
     
     :root { --primary-yellow: #FFC107; --dark-bg: #121212; --card-bg: #1E1E1E; }
 
-    /* الهيدر */
     header { width: 100%; max-width: 480px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; background: #171717; border-bottom: 1px solid #2A2A2A; }
     .logo-container { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 1.3rem; color: var(--primary-yellow); }
     .user-info { display: flex; align-items: center; gap: 10px; cursor: pointer; }
     .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--primary-yellow); color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; }
     .user-id { font-size: 0.85rem; color: #AAA; direction: ltr; }
 
-    /* الحاوية الرئيسية */
     .container { width: 100%; max-width: 480px; padding: 20px; flex: 1; }
 
-    /* بطاقة الرصيد */
     .balance-card { background: linear-gradient(135deg, #1E1E1E, #252525); border: 1px solid #333; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .balance-title { color: #888; font-size: 0.9rem; margin-bottom: 8px; }
     .balance-amount { font-size: 2.4rem; font-weight: bold; color: var(--primary-yellow); margin-bottom: 20px; }
     
-    /* الأزرار */
     .action-btn { width: 100%; padding: 15px; background: var(--primary-yellow); color: #000; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s; }
     .action-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-    /* الإعدادات (Modal) */
     .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: flex-end; z-index: 1000; }
     .modal-content { width: 100%; max-width: 480px; background: #1E1E1E; border-radius: 20px 20px 0 0; padding: 25px; border-top: 2px solid var(--primary-yellow); }
     .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #2A2A2A; }
@@ -38,14 +33,12 @@
     .verified { background: #1B5E20; color: #81C784; }
     .unverified { background: #4A0000; color: #E57373; }
     
-    /* شاشة التسجيل */
     .auth-box { background: #1E1E1E; padding: 25px; border-radius: 16px; border: 1px solid #333; text-align: center; margin-top: 40px; }
     .auth-box input { width: 100%; padding: 12px; margin: 10px 0; background: #121212; border: 1px solid #333; color: #fff; border-radius: 8px; text-align: center; }
   </style>
 </head>
 <body>
 
-  <!-- شريط الأعلى -->
   <header id="appHeader" style="display:none;">
     <div class="logo-container">
       <span>⚡ $XMONE</span>
@@ -57,7 +50,6 @@
   </header>
 
   <div class="container">
-    <!-- شاشة التسجيل -->
     <div id="authScreen" class="auth-box">
       <h2 style="color: var(--primary-yellow); margin-bottom: 20px;">تسجيل الدخول إلى $XMONE</h2>
       <input type="email" id="email" placeholder="البريد الإلكتروني">
@@ -65,7 +57,6 @@
       <button class="action-btn" onclick="loginEmail()">دخول / إنشاء حساب</button>
     </div>
 
-    <!-- الصفحة الرئيسية -->
     <div id="mainScreen" style="display:none;">
       <div class="balance-card">
         <div class="balance-title">إجمالي الرصيد (USD)</div>
@@ -76,7 +67,6 @@
     </div>
   </div>
 
-  <!-- نافذة الإعدادات -->
   <div id="settingsModal" class="modal" onclick="if(event.target === this) toggleModal(false)">
     <div class="modal-content">
       <h3 style="margin-bottom: 15px; color: var(--primary-yellow);">إعدادات الحساب</h3>
@@ -96,7 +86,6 @@
   </div>
 
   <script>
-    // ربط المشروع بقاعدة البيانات في Supabase
     const SUPABASE_URL = 'https://gtzmjyoulhwigenakdsz.supabase.co'; 
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0em1qeW91bGh3aWdlbmFrZHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNjAxNjQsImV4cCI6MjEwNzgzNjE2NH0.3Nd5Ip-liuThLl9sZzilL54Mz-fUDKH80CWkTeQK8rE';
     
@@ -105,55 +94,83 @@
     let userProfile = null;
 
     window.onload = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        currentUser = user;
-        loadProfile();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          currentUser = user;
+          loadProfile();
+        }
+      } catch (err) {
+        console.error(err);
       }
     };
 
     async function loginEmail() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
       
-      if (!email || !password) return alert('يرجى كتابة البريد وكلمة المرور');
-
-      let { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        const res = await supabase.auth.signUp({ email, password });
-        if (res.error) return alert(res.error.message);
-        data = res.data;
+      if (!email || !password) {
+        alert('يرجى كتابة البريد وكلمة المرور');
+        return;
       }
-      currentUser = data.user;
-      loadProfile();
+
+      try {
+        let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          let signUpRes = await supabase.auth.signUp({ email, password });
+          if (signUpRes.error) {
+            alert(signUpRes.error.message);
+            return;
+          }
+          data = signUpRes.data;
+        }
+        
+        if (data && data.user) {
+          currentUser = data.user;
+          loadProfile();
+        } else {
+          alert('حدث خطأ أثناء تسجيل الدخول');
+        }
+      } catch (err) {
+        alert('خطأ في الاتصال: ' + err.message);
+      }
     }
 
     async function loadProfile() {
-      document.getElementById('authScreen').style.display = 'none';
-      document.getElementById('appHeader').style.display = 'flex';
-      document.getElementById('mainScreen').style.display = 'block';
+      try {
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('appHeader').style.display = 'flex';
+        document.getElementById('mainScreen').style.display = 'block';
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', currentUser.id)
-        .single();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
 
-      if (data) {
-        userProfile = data;
-        document.getElementById('displayUserId').innerText = data.user_id_code;
-        document.getElementById('balanceDisplay').innerText = `$${parseFloat(data.balance).toFixed(2)}`;
-        
-        const badge = document.getElementById('verifyBadge');
-        if (data.is_verified) {
-          badge.innerText = 'موثق ✓';
-          badge.className = 'badge verified';
-        } else {
-          badge.innerText = 'غير موثق';
-          badge.className = 'badge unverified';
+        if (error) {
+          alert('خطأ في جلب بيانات الحساب: ' + error.message);
+          return;
         }
 
-        checkMiningTimer();
+        if (data) {
+          userProfile = data;
+          document.getElementById('displayUserId').innerText = data.user_id_code;
+          document.getElementById('balanceDisplay').innerText = `$${parseFloat(data.balance).toFixed(2)}`;
+          
+          const badge = document.getElementById('verifyBadge');
+          if (data.is_verified) {
+            badge.innerText = 'موثق ✓';
+            badge.className = 'badge verified';
+          } else {
+            badge.innerText = 'غير موثق';
+            badge.className = 'badge unverified';
+          }
+
+          checkMiningTimer();
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
 
@@ -164,13 +181,18 @@
       let currentBal = parseFloat(userProfile.balance);
       let newBalance = currentBal === 0 ? 3.12 : currentBal * 1.0312;
 
-      await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({ 
           balance: newBalance,
           last_mined_at: now.toISOString()
         })
         .eq('id', currentUser.id);
+
+      if (error) {
+        alert('حدث خطأ أثناء التحديث');
+        return;
+      }
 
       userProfile.balance = newBalance;
       userProfile.last_mined_at = now;
@@ -213,3 +235,4 @@
   </script>
 </body>
 </html>
+
