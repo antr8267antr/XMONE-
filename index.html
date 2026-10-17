@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>XMONE Platform</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #0D0D0D; color: #FFFFFF; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
@@ -86,32 +85,31 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
     const SUPABASE_URL = 'https://gtzmjyoulhwigenakdsz.supabase.co'; 
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0em1qeW91bGh3aWdlbmFrZHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNjAxNjQsImV4cCI6MjEwNzgzNjE2NH0.3Nd5Ip-liuThLl9sZzilL54Mz-fUDKH80CWkTeQK8rE';
     
-    let supabaseClient = null;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let currentUser = null;
     let userProfile = null;
 
-    window.onload = async () => {
+    async function init() {
       try {
-        if (typeof supabase !== 'undefined') {
-          supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-          const { data: { user } } = await supabaseClient.auth.getUser();
-          if (user) {
-            currentUser = user;
-            loadProfile();
-          }
-        } else {
-          document.getElementById('statusMsg').innerText = 'خطأ: لم يتم تحميل مكتبة Supabase';
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          currentUser = user;
+          await loadProfile();
         }
       } catch (err) {
         console.error(err);
       }
-    };
+    }
+    init();
 
-    async function loginEmail() {
+    // ربط الدوال بنافذة المتصفح لتعمل الأزرار
+    window.loginEmail = async function() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
       const status = document.getElementById('statusMsg');
@@ -126,13 +124,11 @@
       btn.disabled = true;
 
       try {
-        // محاولة تسجيل الدخول
-        let { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        let { data, error } = await supabase.auth.signInWithPassword({ email, password });
         
         if (error) {
-          // إذا فشل تسجيل الدخول، نحاول إنشاء حساب جديد
           status.innerText = 'جاري إنشاء حساب جديد...';
-          let signUpRes = await supabaseClient.auth.signUp({ email, password });
+          let signUpRes = await supabase.auth.signUp({ email, password });
           
           if (signUpRes.error) {
             alert('خطأ أثناء التسجيل: ' + signUpRes.error.message);
@@ -146,10 +142,10 @@
         if (data && data.user) {
           currentUser = data.user;
           status.innerText = 'تم الدخول بنجاح!';
-          loadProfile();
+          await loadProfile();
         } else {
-          alert('يرجى مراجعة بريدك الإلكتروني لتأكيد الحساب إذا كان تفعيل الإيميل مفعلاً في Supabase');
-          status.innerText = 'يرجى مراجعة البريد للتأكيد';
+          alert('يرجى مراجعة بريدك الإلكتروني');
+          status.innerText = 'يرجى مراجعة البريد';
         }
       } catch (err) {
         alert('خطأ عام: ' + err.message);
@@ -157,7 +153,7 @@
       } finally {
         btn.disabled = false;
       }
-    }
+    };
 
     async function loadProfile() {
       try {
@@ -165,14 +161,14 @@
         document.getElementById('appHeader').style.display = 'flex';
         document.getElementById('mainScreen').style.display = 'block';
 
-        const { data, error } = await supabaseClient
+        const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', currentUser.id)
           .single();
 
         if (error) {
-          console.error(error);
+          alert('خطأ في جلب بيانات الحساب: ' + error.message);
           return;
         }
 
@@ -197,14 +193,14 @@
       }
     }
 
-    async function startMining() {
+    window.startMining = async function() {
       if (!userProfile) return;
 
       const now = new Date();
       let currentBal = parseFloat(userProfile.balance);
       let newBalance = currentBal === 0 ? 3.12 : currentBal * 1.0312;
 
-      const { error } = await supabaseClient
+      const { error } = await supabase
         .from('profiles')
         .update({ 
           balance: newBalance,
@@ -221,7 +217,7 @@
       userProfile.last_mined_at = now;
       document.getElementById('balanceDisplay').innerText = `$${newBalance.toFixed(2)}`;
       checkMiningTimer();
-    }
+    };
 
     function checkMiningTimer() {
       const btn = document.getElementById('mineBtn');
@@ -247,14 +243,14 @@
       }
     }
 
-    function toggleModal(show) {
+    window.toggleModal = function(show) {
       document.getElementById('settingsModal').style.display = show ? 'flex' : 'none';
-    }
+    };
 
-    async function logout() {
-      await supabaseClient.auth.signOut();
+    window.logout = async function() {
+      await supabase.auth.signOut();
       location.reload();
-    }
+    };
   </script>
 </body>
 </html>
