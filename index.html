@@ -18,11 +18,12 @@
 
     .container { width: 100%; max-width: 480px; padding: 20px; flex: 1; }
 
-    .balance-card { background: linear-gradient(135deg, #1E1E1E, #252525); border: 1px solid #333; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .balance-card { background: linear-gradient(135deg, #1E1E1E, #252525); border: 1px solid #333; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); }
     .balance-title { color: #888; font-size: 0.9rem; margin-bottom: 8px; }
     .balance-amount { font-size: 2.4rem; font-weight: bold; color: var(--primary-yellow); margin-bottom: 20px; }
     
-    .action-btn { width: 100%; padding: 15px; background: var(--primary-yellow); color: #000; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+    .action-btn { width: 100%; padding: 15px; background: var(--primary-yellow); color: #000; font-weight: bold; font-size: 1.1rem; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s ease; }
+    .action-btn:hover { filter: brightness(1.05); }
     .action-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
 
     .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: flex-end; z-index: 1000; }
@@ -88,33 +89,63 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-    const SUPABASE_URL = 'https://gtzmjyoulhwigenakdsz.supabase.co'; 
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0em1qeW91bGh3aWdlbmFrZHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNjAxNjQsImV4cCI6MjEwNzgzNjE2NH0.3Nd5Ip-liuThLl9sZzilL54Mz-fUDKH80CWkTeQK8rE';
-    
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_URL = 'https://gtzmjyoulhwigenakdsz.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0em1qeW91bGh3aWdlbmFrZHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNjAxNjQsImV4cCI6MjEwNzgzNjE2NH0.3Nd5[...]';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+
     let currentUser = null;
     let userProfile = null;
 
     async function init() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          currentUser = user;
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('getSession error:', error);
+        }
+
+        if (session && session.user) {
+          currentUser = session.user;
           await loadProfile();
         }
+
+        supabase.auth.onAuthStateChange((event, session) => {
+          console.log('Auth event:', event);
+
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            currentUser = session?.user ?? null;
+            if (currentUser) {
+              loadProfile();
+            }
+          }
+
+          if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            userProfile = null;
+            document.getElementById('authScreen').style.display = 'block';
+            document.getElementById('appHeader').style.display = 'none';
+            document.getElementById('mainScreen').style.display = 'none';
+          }
+        });
       } catch (err) {
         console.error(err);
       }
     }
+
     init();
 
-    // ربط الدوال بنافذة المتصفح لتعمل الأزرار
     window.loginEmail = async function() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
       const status = document.getElementById('statusMsg');
       const btn = document.getElementById('loginBtn');
-      
+
       if (!email || !password) {
         alert('يرجى كتابة البريد وكلمة المرور');
         return;
@@ -125,20 +156,28 @@
 
       try {
         let { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        
+
         if (error) {
           status.innerText = 'جاري إنشاء حساب جديد...';
-          let signUpRes = await supabase.auth.signUp({ email, password });
-          
+          const signUpRes = await supabase.auth.signUp({ email, password });
+
           if (signUpRes.error) {
             alert('خطأ أثناء التسجيل: ' + signUpRes.error.message);
             status.innerText = signUpRes.error.message;
             btn.disabled = false;
             return;
           }
+
+          if (!signUpRes.data?.session) {
+            status.innerText = 'تم إنشاء الحساب. يرجى تأكيد البريد الإلكتروني قبل تسجيل الدخول.';
+            alert('تم إنشاء الحساب. تحقق من بريدك لتأكيد الحساب قبل تسجيل الدخول.');
+            btn.disabled = false;
+            return;
+          }
+
           data = signUpRes.data;
         }
-        
+
         if (data && data.user) {
           currentUser = data.user;
           status.innerText = 'تم الدخول بنجاح!';
@@ -176,7 +215,7 @@
           userProfile = data;
           document.getElementById('displayUserId').innerText = data.user_id_code;
           document.getElementById('balanceDisplay').innerText = `$${parseFloat(data.balance).toFixed(2)}`;
-          
+
           const badge = document.getElementById('verifyBadge');
           if (data.is_verified) {
             badge.innerText = 'موثق ✓';
@@ -197,12 +236,12 @@
       if (!userProfile) return;
 
       const now = new Date();
-      let currentBal = parseFloat(userProfile.balance);
-      let newBalance = currentBal === 0 ? 3.12 : currentBal * 1.0312;
+      const currentBal = parseFloat(userProfile.balance);
+      const newBalance = currentBal === 0 ? 3.12 : currentBal * 1.0312;
 
       const { error } = await supabase
         .from('profiles')
-        .update({ 
+        .update({
           balance: newBalance,
           last_mined_at: now.toISOString()
         })
@@ -214,7 +253,7 @@
       }
 
       userProfile.balance = newBalance;
-      userProfile.last_mined_at = now;
+      userProfile.last_mined_at = now.toISOString();
       document.getElementById('balanceDisplay').innerText = `$${newBalance.toFixed(2)}`;
       checkMiningTimer();
     };
@@ -223,7 +262,7 @@
       const btn = document.getElementById('mineBtn');
       const timerText = document.getElementById('timerText');
 
-      if (!userProfile.last_mined_at) {
+      if (!userProfile || !userProfile.last_mined_at) {
         btn.disabled = false;
         timerText.innerText = '';
         return;
